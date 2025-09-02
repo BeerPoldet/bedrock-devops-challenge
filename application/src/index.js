@@ -265,7 +265,7 @@ app.get('/', (req, res) => {
 });
 
 // Error handling middleware
-app.use((error, req, res) => {
+app.use((error, req, res, next) => {
   logger.error('Unhandled error', {
     error: error.message,
     stack: error.stack,
