@@ -1,0 +1,65 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: slack-alerts
+    receivers:
+      - uid: slack-webhook-general
+        type: slack
+        settings:
+          url: $SLACK_WEBHOOK_URL
+          channel: "#alerts"
+          username: "Grafana"
+          title: "{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
+          text: |
+            {{ range .Alerts }}
+            *Alert:* {{ .Annotations.summary }}
+            *Description:* {{ .Annotations.description }}
+            *Service:* {{ .Labels.service }}
+            *Severity:* {{ .Labels.severity }}
+            *Status:* {{ .Status }}
+            *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+            {{ end }}
+
+  - orgId: 1
+    name: slack-critical
+    receivers:
+      - uid: slack-webhook-critical
+        type: slack
+        settings:
+          url: $SLACK_WEBHOOK_URL
+          channel: "#critical-alerts"
+          username: "Grafana Critical"
+          iconEmoji: ":rotating_light:"
+          title: "🚨 CRITICAL: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
+          text: |
+            {{ range .Alerts }}
+            *🔥 CRITICAL ALERT 🔥*
+            *Alert:* {{ .Annotations.summary }}
+            *Description:* {{ .Annotations.description }}
+            *Service:* {{ .Labels.service }}
+            *Status:* {{ .Status }}
+            *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+            {{ end }}
+
+  - orgId: 1  
+    name: slack-warning
+    receivers:
+      - uid: slack-webhook-warning
+        type: slack
+        settings:
+          url: $SLACK_WEBHOOK_URL
+          channel: "#alerts"
+          username: "Grafana Warning"
+          iconEmoji: ":warning:"
+          title: "⚠️ WARNING: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
+          text: |
+            {{ range .Alerts }}
+            *⚠️ Warning Alert*
+            *Alert:* {{ .Annotations.summary }}
+            *Description:* {{ .Annotations.description }}
+            *Service:* {{ .Labels.service }}
+            *Severity:* {{ .Labels.severity }}
+            *Status:* {{ .Status }}
+            *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+            {{ end }}

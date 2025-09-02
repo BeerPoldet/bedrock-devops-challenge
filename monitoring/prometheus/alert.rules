@@ -1,0 +1,66 @@
+groups:
+  - name: application.rules
+    rules:
+      # Application Down Alert
+      - alert: ApplicationDown
+        expr: up{job="application"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Application {{ $labels.instance }} is down"
+          description: "Application has been down for more than 30 seconds."
+
+      # High Response Time Alert
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time on {{ $labels.instance }}"
+          description: "95th percentile response time is {{ $value }}s, which is above the 1s threshold."
+
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: (sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))) * 100 > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on {{ $labels.instance }}"
+          description: "Error rate is {{ $value }}%, which is above the 5% threshold."
+
+  - name: infrastructure.rules
+    rules:
+      # High CPU Usage Alert
+      - alert: HighCPUUsage
+        expr: (100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value }}%, which is above 80%."
+
+      # High Memory Usage Alert
+      - alert: HighMemoryUsage
+        expr: ((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value }}%, which is above 85%."
+
+  - name: business.rules
+    rules:
+      # High File Upload Failure Rate
+      - alert: HighUploadFailureRate
+        expr: (rate(file_uploads_total{status="error"}[5m]) / (rate(file_uploads_total{status="error"}[5m]) + rate(file_uploads_total{status="success"}[5m]))) * 100 > 10
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High file upload failure rate"
+          description: "File upload failure rate is {{ $value }}%, which is above 10%."

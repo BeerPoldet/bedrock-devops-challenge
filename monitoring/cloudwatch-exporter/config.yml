@@ -1,0 +1,61 @@
+region: us-east-1
+# Configure for LocalStack endpoint
+endpoint_url: http://localstack:4566
+role_arn:
+
+metrics:
+# S3 BucketSizeBytes metric
+- aws_namespace: AWS/S3
+  aws_metric_name: BucketSizeBytes
+  aws_dimensions: [BucketName, StorageType]
+  aws_dimension_select:
+    BucketName: [app]
+    StorageType: [StandardStorage]
+  aws_statistics: [Average]
+  period: 86400  # Daily for S3 metrics
+  range_seconds: 172800  # 2 days
+  delay_seconds: 0
+
+# S3 NumberOfObjects metric
+- aws_namespace: AWS/S3
+  aws_metric_name: NumberOfObjects
+  aws_dimensions: [BucketName, StorageType]
+  aws_dimension_select:
+    BucketName: [app]
+    StorageType: [AllStorageTypes]
+  aws_statistics: [Average]
+  period: 86400  # Daily for S3 metrics  
+  range_seconds: 172800  # 2 days
+  delay_seconds: 0
+
+# S3 Request metrics (if available)
+- aws_namespace: AWS/S3
+  aws_metric_name: AllRequests
+  aws_dimensions: [BucketName, FilterId]
+  aws_dimension_select:
+    BucketName: [app]
+  aws_statistics: [Sum]
+  period: 300  # 5 minutes
+  range_seconds: 600  # 10 minutes
+  delay_seconds: 0
+
+# S3 Data Transfer metrics
+- aws_namespace: AWS/S3
+  aws_metric_name: BytesDownloaded
+  aws_dimensions: [BucketName, FilterId]
+  aws_dimension_select:
+    BucketName: [app]
+  aws_statistics: [Sum]
+  period: 300  # 5 minutes
+  range_seconds: 600  # 10 minutes
+  delay_seconds: 0
+
+- aws_namespace: AWS/S3
+  aws_metric_name: BytesUploaded
+  aws_dimensions: [BucketName, FilterId]
+  aws_dimension_select:
+    BucketName: [app]
+  aws_statistics: [Sum]
+  period: 300  # 5 minutes
+  range_seconds: 600  # 10 minutes
+  delay_seconds: 0

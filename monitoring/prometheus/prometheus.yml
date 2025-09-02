@@ -1,0 +1,50 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert.rules"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+scrape_configs:
+  # Application metrics scraping
+  - job_name: 'application'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['app:3000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 'app:3000'
+
+
+
+  # Infrastructure metrics from node-exporter
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+# Remote write configuration for long-term storage (optional)
+# remote_write:
+#   - url: "http://localhost:9090/api/v1/write"
+
+# S3 metrics from S3 Metrics Generator
+  - job_name: 's3-metrics-generator'
+    static_configs:
+      - targets: ['s3-metrics-generator:9107']
+    scrape_interval: 30s  # S3 metrics update frequently with real bucket data
+    scrape_timeout: 25s
+
+# Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
