@@ -66,8 +66,7 @@ resource "aws_iam_policy" "s3_access_policy" {
           StringLike = {
             "s3:prefix" = [
               "logs/*",
-              "uploads/*",
-              "data/*"
+              "uploads/*"
             ]
           }
         }
