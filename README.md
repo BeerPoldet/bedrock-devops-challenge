@@ -19,21 +19,33 @@ Choose one of the following options:
 - Better resource utilization on macOS
 - Installation guide: https://docs.orbstack.dev/install
 
-### Install LocalStack
+## Getting Started
+
+### Prerequisites
+
+**Install Required Tools**
+```bash
+# Verify installations
+terraform --version
+docker --version
+aws --version
+```
+
+**Install LocalStack**
 
 Follow the installation guide:
 https://docs.localstack.cloud/aws/getting-started/installation/
 
-## Quick Start
+### Setup Process
 
-### 1. Start the Development Environment
+**1. Start LocalStack**
 
 Start LocalStack using Docker Compose:
 ```bash
 docker compose up -d
 ```
 
-### 2. Verify Installation
+**2. Verify LocalStack Installation**
 
 Validate that LocalStack is running correctly:
 ```bash
@@ -47,38 +59,11 @@ localstack status services
 
 **For OrbStack users:**
 ```bash
-export LOCALSTACK_HOST=localstack-main.orb.local
+export LOCALSTACK_HOST=localstack.orb.local
 localstack status services
 ```
 
-### 3. Access LocalStack
-
-- **LocalStack Gateway**: http://localhost:4566
-- **External Services**: Ports 4510-4559 are available for additional services
-
-**Note for OrbStack users**: Use the convenient domain name instead of localhost:
-- **LocalStack Gateway**: http://localstack-main.orb.local:4566
-- **Or using service name**: http://localstack.bedrock-devops-challenge.orb.local:4566
-
-## Configuration
-
-The Docker Compose setup includes:
-- **Container Name**: `localstack-main` (configurable via `LOCALSTACK_DOCKER_NAME`)
-- **LocalStack Version**: 4.7
-- **Debug Mode**: Disabled by default (enable with `DEBUG=1`)
-- **Volume Mapping**: Local `./volume` directory for persistence
-
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LOCALSTACK_DOCKER_NAME` | `localstack-main` | Container name |
-| `DEBUG` | `0` | Enable debug mode (set to `1`) |
-| `LOCALSTACK_VOLUME_DIR` | `./volume` | Local volume directory |
-
-## Usage Examples
-
-### AWS CLI Configuration
+**3. Configure AWS CLI**
 
 Configure AWS CLI to use LocalStack:
 ```bash
@@ -87,15 +72,206 @@ aws configure set aws_secret_access_key test
 aws configure set region us-east-1
 ```
 
-Use LocalStack endpoint:
+Test the configuration:
 ```bash
+# For Docker Desktop users
 aws --endpoint-url=http://localhost:4566 s3 ls
+
+# For OrbStack users
+aws --endpoint-url=http://localstack.orb.local:4566 s3 ls
 ```
 
-**For OrbStack users**, use the domain name:
+**4. Initialize and Deploy Infrastructure**
+
+Initialize Terraform:
 ```bash
-aws --endpoint-url=http://localstack-main.orb.local:4566 s3 ls
+cd terraform
+terraform init
 ```
+
+Ensure LocalStack is running, then deploy infrastructure:
+```bash
+# Make sure LocalStack is running
+docker compose up -d
+
+# Plan deployment
+terraform plan -var-file="environments/dev/terraform.tfvars"
+
+# Apply changes
+terraform apply -var-file="environments/dev/terraform.tfvars"
+```
+
+**5. Start Monitoring Stack**
+
+```bash
+docker compose -f monitoring/docker-compose.yml up -d
+```
+
+### Access Points
+
+- **LocalStack Gateway**: http://localhost:4566
+- **Prometheus**: http://localhost:9090
+- **Grafana**: http://localhost:3000 (admin/admin)
+- **External Services**: Ports 4510-4559 are available for additional services
+
+**Note for OrbStack users**: Use convenient domain names:
+- **LocalStack Gateway**: http://localstack.orb.local:4566
+- **Or using service name**: http://localstack.bedrock-devops-challenge.orb.local:4566
+
+## API Documentation
+
+The application provides a REST API with the following endpoints:
+
+### Base URL
+- **Local Development**: http://localhost:3000
+
+### Endpoints
+
+#### GET `/`
+Returns basic application information and available endpoints.
+
+**Response:**
+```json
+{
+  "message": "Bedrock DevOps Challenge Application",
+  "version": "1.0.0",
+  "endpoints": {
+    "health": "/health",
+    "metrics": "/metrics", 
+    "upload": "POST /upload"
+  }
+}
+```
+
+#### GET `/health`
+Health check endpoint that returns application status and uptime.
+
+**Response:**
+```json
+{
+  "uptime": 123.45,
+  "message": "OK",
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "environment": "development"
+}
+```
+
+#### GET `/metrics`
+Prometheus metrics endpoint exposing application and system metrics.
+
+**Response:** Prometheus format metrics including:
+- `http_request_duration_seconds` - HTTP request duration histogram
+- `http_requests_total` - Total HTTP request counter
+- `file_uploads_total` - File upload counter (success/error)
+- `file_upload_size_bytes` - File upload size histogram
+- Default Node.js metrics (memory, CPU, etc.)
+
+**Content-Type:** `text/plain; version=0.0.4; charset=utf-8`
+
+#### POST `/upload`
+File upload endpoint that stores files in S3-compatible storage.
+
+**Request:**
+- **Content-Type:** `multipart/form-data`
+- **Body:** Form data with `file` field containing the file to upload
+- **File Size Limit:** 50MB
+
+**Example using curl:**
+```bash
+curl -X POST http://localhost:3000/upload \
+  -F "file=@example.txt"
+```
+
+**Success Response (200):**
+```json
+{
+  "message": "File uploaded successfully",
+  "fileName": "uploads/1642248600000-example.txt",
+  "size": 1024,
+  "location": "http://localhost:4566/app/uploads/1642248600000-example.txt",
+  "etag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+  "uploadedAt": "2024-01-15T10:30:00.000Z"
+}
+```
+
+**Error Response (400):**
+```json
+{
+  "error": "No file provided"
+}
+```
+
+**Error Response (500):**
+```json
+{
+  "error": "Upload failed",
+  "message": "Detailed error message"
+}
+```
+
+### Environment Variables
+
+The application uses the following environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | Application port |
+| `NODE_ENV` | `development` | Environment (development/staging/production) |
+| `AWS_ENDPOINT` | `http://localhost:4566` | AWS/LocalStack endpoint |
+| `AWS_REGION` | `us-east-1` | AWS region |
+| `AWS_ACCESS_KEY_ID` | `test` | AWS access key |
+| `AWS_SECRET_ACCESS_KEY` | `test` | AWS secret key |
+| `S3_BUCKET_NAME` | `app` | S3 bucket name for file storage |
+
+### Security Features
+
+- **Helmet.js** for security headers
+- **CORS** enabled for cross-origin requests
+- **Request size limit** of 50MB for JSON and file uploads
+- **Input validation** using Zod schemas
+- **Structured logging** with Winston
+
+### Monitoring & Observability
+
+- **Structured JSON logging** to console and S3
+- **Prometheus metrics** for monitoring
+- **Request tracking** with duration and status codes
+- **File upload metrics** with size and success/failure tracking
+- **Health checks** for readiness probes
+
+### Example Usage
+
+**Test the application:**
+```bash
+# Check health
+curl http://localhost:3000/health
+
+# View metrics  
+curl http://localhost:3000/metrics
+
+# Upload a file
+curl -X POST http://localhost:3000/upload -F "file=@test.txt"
+
+# Get application info
+curl http://localhost:3000/
+```
+
+## Configuration
+
+The Docker Compose setup includes:
+- **Container Name**: `localstack` (configurable via `LOCALSTACK_DOCKER_NAME`)
+- **LocalStack Version**: 4.7
+- **Debug Mode**: Disabled by default (enable with `DEBUG=1`)
+- **Volume Mapping**: Local `./volume` directory for persistence
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOCALSTACK_DOCKER_NAME` | `localstack` | Container name |
+| `DEBUG` | `0` | Enable debug mode (set to `1`) |
+| `LOCALSTACK_VOLUME_DIR` | `./volume` | Local volume directory |
+
 
 ## Troubleshooting
 
@@ -103,7 +279,7 @@ aws --endpoint-url=http://localstack-main.orb.local:4566 s3 ls
 
 **LocalStack not starting:**
 - Ensure Docker is running
-- Check port 4566 is not in use: `lsof -i :4566` (Docker Desktop) or `curl http://localstack-main.orb.local:4566` (OrbStack)
+- Check port 4566 is not in use: `lsof -i :4566` (Docker Desktop) or `curl http://localstack.orb.local:4566` (OrbStack)
 - Review logs: `docker compose logs localstack`
 
 **Permission issues:**
@@ -113,6 +289,30 @@ aws --endpoint-url=http://localstack-main.orb.local:4566 s3 ls
 **Port conflicts:**
 - Modify port mappings in `docker-compose.yml` if needed
 - Default ports: 4566 (gateway), 4510-4559 (services)
+
+**Terraform State Lock**
+```bash
+# Force unlock if needed
+terraform force-unlock <LOCK_ID>
+```
+
+**LocalStack Connection Issues**
+```bash
+# Check LocalStack status
+localstack status services
+
+# Restart LocalStack
+docker compose restart localstack
+```
+
+**Monitoring Data Missing**
+```bash
+# Check Prometheus targets
+curl http://localhost:9090/api/v1/targets
+
+# Verify application metrics
+curl http://localhost:3000/metrics
+```
 
 ### Useful Commands
 
@@ -130,8 +330,203 @@ docker compose down
 docker compose down -v
 ```
 
+### Debugging Steps
+
+1. **Check Application Logs**
+   ```bash
+   docker compose logs -f app
+   ```
+
+2. **Verify Infrastructure**
+   ```bash
+   terraform show
+   terraform state list
+   ```
+
+3. **Monitor Resource Usage**
+   ```bash
+   docker stats
+   ```
+
+## Infrastructure Documentation
+
+### Architecture Overview
+
+This project implements a complete DevOps infrastructure with:
+
+- **LocalStack**: AWS service emulation for local development
+- **Terraform**: Infrastructure as Code for AWS resources
+- **Docker Compose**: Container orchestration
+- **Monitoring Stack**: Prometheus, Grafana, and CloudWatch integration
+- **Application**: Sample Node.js application with health checks
+
+### Terraform Infrastructure
+
+The infrastructure is organized into reusable modules:
+
+#### Core Modules
+
+**S3 Module** (`terraform/modules/s3/`)
+- Creates S3 buckets for application storage
+- Configures versioning and lifecycle policies
+- Implements proper IAM permissions
+
+**IAM Module** (`terraform/modules/iam/`)
+- Defines service roles and policies
+- Implements least privilege access
+- Creates application-specific permissions
+
+**CloudWatch Module** (`terraform/modules/cloudwatch/`)
+- Sets up log groups and metric filters
+- Configures alarms and dashboards
+- Integrates with application monitoring
+
+**Prometheus Module** (`terraform/modules/prometheus/`)
+- Deploys Prometheus server
+- Configures service discovery
+- Sets up metric collection rules
+
+#### Environment Configuration
+
+Three environments are configured:
+- **Development**: `terraform/environments/dev/`
+- **Staging**: `terraform/environments/staging/`
+- **Production**: `terraform/environments/prod/`
+
+Each environment has specific resource sizing and configuration.
+
+### Application Structure
+
+The sample Node.js application (`application/`) includes:
+- Health check endpoints (`/health`, `/ready`)
+- Metrics exposition (`/metrics`)
+- Structured logging
+- Graceful shutdown handling
+
+### Monitoring & Observability
+
+#### Metrics Collection
+
+The application exposes metrics at `/metrics` endpoint:
+- HTTP request duration and count
+- Application health status
+- Custom business metrics
+
+#### Prometheus Configuration
+
+Located in `monitoring/prometheus/`:
+- Service discovery for dynamic targets
+- Alerting rules for critical metrics
+- Data retention and storage configuration
+
+#### Grafana Dashboards
+
+Pre-configured dashboards for:
+- Application performance metrics
+- Infrastructure monitoring
+- Alert management
+
+### Security
+
+1. **Network Security (Docker Network Isolation)**
+   - Custom isolated Docker networks separate components from default bridge
+   - Subnet isolation with CIDR block configuration
+   - Service discovery within secure network boundaries
+   - Health checks ensure only healthy services communicate
+   
+   **Implementation from `docker-compose.yml`:**
+   ```yaml
+   networks:
+     bedrock-network:
+       driver: bridge
+       ipam:
+         config:
+           - subnet: 172.20.0.0/16
+   
+   services:
+     app:
+       networks:
+         - bedrock-network
+     prometheus:
+       networks:
+         - bedrock-network  # Same network for metrics scraping
+     grafana:
+       networks:
+         - bedrock-network  # Access to Prometheus data source
+   ```
+
+2. **Credential Management**
+   - Environment variables sourced from `.env` files (git-ignored)
+   - No hardcoded secrets in configuration files
+   - LocalStack test credentials for development environment
+   - Separate credential management per environment
+   
+   **Implementation from `.env`:**
+   ```bash
+   # AWS Configuration
+   AWS_REGION=us-east-1
+   AWS_ACCESS_KEY_ID=test
+   AWS_SECRET_ACCESS_KEY=test
+   AWS_ENDPOINT=http://localstack.orb.local:4566
+   
+   # S3 Configuration - matches Terraform bucket name
+   S3_BUCKET_NAME=app
+   
+   # Slack Webhook for Grafana Alerts
+   SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
+   ```
+
+3. **Resource Access Control (IAM Least Privilege)**
+   - Specific IAM policies with minimal required permissions
+   - Resource-based access control with ARN restrictions
+   - Conditional access using prefix-based S3 permissions
+   - Separate roles for different service components
+   
+   **Implementation from `terraform/modules/iam/main.tf`:**
+   ```hcl
+   resource "aws_iam_policy" "s3_access_policy" {
+     policy = jsonencode({
+       Version = "2012-10-17"
+       Statement = [
+         {
+           Sid    = "S3BucketAccess"
+           Effect = "Allow"
+           Action = [
+             "s3:GetObject",
+             "s3:PutObject", 
+             "s3:DeleteObject",
+             "s3:ListBucket"
+           ]
+           Resource = [
+             var.bucket_arn,
+             "${var.bucket_arn}/*"
+           ]
+         },
+         {
+           Sid    = "S3PrefixedAccess"
+           Effect = "Allow"
+           Action = ["s3:ListBucket"]
+           Resource = var.bucket_arn
+           Condition = {
+             StringLike = {
+               "s3:prefix" = [
+                 "logs/*",
+                 "uploads/*"
+               ]
+             }
+           }
+         }
+       ]
+     })
+   }
+   ```
+   ```
+
 ## Resources
 
 - [LocalStack Documentation](https://docs.localstack.cloud/)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
 - [AWS CLI Configuration](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html)
+- [Terraform Best Practices](https://www.terraform-best-practices.com/)
+- [Prometheus Configuration](https://prometheus.io/docs/prometheus/latest/configuration/configuration/)
+- [Grafana Dashboard Guide](https://grafana.com/docs/grafana/latest/dashboards/)
