@@ -33,18 +33,14 @@ scrape_configs:
       - targets: ['node-exporter:9100']
     scrape_interval: 15s
 
-# Remote write configuration for long-term storage (optional)
-# remote_write:
-#   - url: "http://localhost:9090/api/v1/write"
-
-# S3 metrics from S3 Metrics Generator
+  # S3 metrics from S3 Metrics Generator
   - job_name: 's3-metrics-generator'
     static_configs:
       - targets: ['s3-metrics-generator:9107']
     scrape_interval: 30s  # S3 metrics update frequently with real bucket data
     scrape_timeout: 25s
 
-# Prometheus self-monitoring
+  # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']

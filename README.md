@@ -426,6 +426,48 @@ Pre-configured dashboards for:
 - Infrastructure monitoring
 - Alert management
 
+#### Custom Prometheus Exporters
+
+**S3 Metrics Generator** (`monitoring/s3-metrics-generator/`)
+
+A custom Prometheus exporter that provides S3 storage metrics for the application:
+
+**Features:**
+- **Real-time S3 metrics**: Connects to LocalStack S3 to collect actual bucket metrics
+- **Prometheus format**: Exposes metrics at `/metrics` endpoint (port 9107)
+- **Comprehensive metrics**:
+  - `aws_s3_bucket_size_bytes_average` - Current bucket size in bytes
+  - `aws_s3_number_of_objects_average` - Number of objects in bucket
+  - `aws_s3_bytes_uploaded_sum` - Total bytes uploaded (simulated)
+  - `aws_s3_bytes_downloaded_sum` - Total bytes downloaded (simulated)
+  - `aws_s3_all_requests_sum` - Total S3 requests (simulated)
+
+**Configuration:**
+- Automatically discovers S3 bucket contents via LocalStack API
+- Configurable via environment variables:
+  - `AWS_ENDPOINT`: S3 endpoint (default: `http://localstack:4566`)
+  - `S3_BUCKET_NAME`: Target bucket name (default: `app`)
+  - `AWS_REGION`: AWS region (default: `us-east-1`)
+
+**Health Monitoring:**
+- Health check endpoint at `/health`
+- Docker health checks configured with 30-second intervals
+- Graceful error handling for S3 connectivity issues
+
+**Usage:**
+```bash
+# Start the S3 metrics generator
+docker compose -f monitoring/docker-compose.yml up -d s3-metrics-generator
+
+# View metrics
+curl http://localhost:9107/metrics
+
+# Check health
+curl http://localhost:9107/health
+```
+
+The S3 metrics generator integrates seamlessly with Prometheus and provides visibility into storage utilization, helping monitor application data growth and S3 usage patterns in the development environment.
+
 ## CI/CD Pipeline
 
 This project includes a comprehensive GitHub Actions CI/CD pipeline that supports both local testing with LocalStack and production deployment to AWS ECR.

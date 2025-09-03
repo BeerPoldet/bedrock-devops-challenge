@@ -973,7 +973,7 @@
           "refId": "A"
         }
       ],
-      "title": "S3 Bucket Usage (Real CloudWatch)",
+      "title": "S3 Bucket Usage",
       "type": "gauge"
     },
     {
