@@ -1,5 +1,6 @@
 volume/
 .env
+.secrets
 .terraform
 *.tfstate
 *.tfstate.*

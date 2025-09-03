@@ -71,3 +71,22 @@ variable "prometheus_labels" {
   type        = map(string)
   default     = {}
 }
+
+# GitHub Actions Configuration
+variable "github_repo" {
+  description = "GitHub repository in the format 'owner/repo' (leave empty to disable GitHub Actions integration)"
+  type        = string
+  default     = ""
+}
+
+variable "github_actions_role_name" {
+  description = "Name of the IAM role for GitHub Actions"
+  type        = string
+  default     = ""
+}
+
+variable "ecr_repository_arn" {
+  description = "ARN of the ECR repository (leave empty to disable ECR permissions)"
+  type        = string
+  default     = ""
+}

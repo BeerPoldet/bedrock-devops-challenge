@@ -9,7 +9,7 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-west-2"
+  region = "us-east-1"
 
   # Custom endpoint configuration - only apply when endpoint is provided
   access_key                  = var.aws_endpoint != "" ? "test" : null
@@ -22,9 +22,11 @@ provider "aws" {
   dynamic "endpoints" {
     for_each = var.aws_endpoint != "" ? [1] : []
     content {
-      cloudwatch = var.aws_endpoint
-      iam        = var.aws_endpoint
-      s3         = var.aws_endpoint
+      cloudwatch     = var.aws_endpoint
+      cloudwatchlogs = var.aws_endpoint
+      iam            = var.aws_endpoint
+      s3             = var.aws_endpoint
+      sts            = var.aws_endpoint
     }
   }
 
@@ -66,6 +68,11 @@ module "iam" {
   prometheus_service_account_name = var.prometheus_service_account_name
   prometheus_namespace            = var.prometheus_namespace
   prometheus_labels               = var.prometheus_labels
+
+  # GitHub Actions OIDC configuration
+  github_repo              = var.github_repo
+  github_actions_role_name = var.github_actions_role_name
+  ecr_repository_arn       = module.ecr.repository_arn
 }
 
 
@@ -76,5 +83,13 @@ module "cloudwatch" {
   retention_in_days = var.retention_in_days
   environment       = var.environment
   tags              = var.tags
+}
+
+module "ecr" {
+  source = "./modules/ecr"
+
+  repository_name = var.ecr_repository_name
+  aws_endpoint    = var.aws_endpoint
+  tags            = var.tags
 }
 

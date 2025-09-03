@@ -198,3 +198,95 @@ resource "aws_iam_role_policy_attachment" "prometheus_policy_attachment" {
   role       = aws_iam_role.prometheus_role.name
   policy_arn = aws_iam_policy.prometheus_policy.arn
 }
+
+# GitHub OIDC Provider
+resource "aws_iam_openid_connect_provider" "github" {
+  count = var.github_repo != "" ? 1 : 0
+  url   = "https://token.actions.githubusercontent.com"
+
+  client_id_list = [
+    "sts.amazonaws.com",
+  ]
+
+  thumbprint_list = [
+    "6938fd4d98bab03faadb97b34396831e3780aea1",
+    "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
+  ]
+
+  tags = var.tags
+}
+
+# IAM Role for GitHub Actions
+resource "aws_iam_role" "github_actions" {
+  count = var.github_repo != "" ? 1 : 0
+  name  = var.github_actions_role_name
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github[0].arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          }
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+# IAM Policy for ECR operations
+resource "aws_iam_policy" "ecr_push" {
+  count       = var.github_repo != "" ? 1 : 0
+  name        = "${var.github_actions_role_name}-ecr-push"
+  description = "Allow GitHub Actions to push images to ECR"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:DescribeRepositories",
+          "ecr:DescribeImages",
+          "ecr:BatchImportImage",
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:PutImage",
+          "ecr:StartImageScan"
+        ]
+        Resource = var.ecr_repository_arn != "" ? var.ecr_repository_arn : "*"
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+# Attach the ECR policy to the role
+resource "aws_iam_role_policy_attachment" "github_actions_ecr" {
+  count      = var.github_repo != "" ? 1 : 0
+  role       = aws_iam_role.github_actions[0].name
+  policy_arn = aws_iam_policy.ecr_push[0].arn
+}

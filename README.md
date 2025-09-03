@@ -426,6 +426,182 @@ Pre-configured dashboards for:
 - Infrastructure monitoring
 - Alert management
 
+## CI/CD Pipeline
+
+This project includes a comprehensive GitHub Actions CI/CD pipeline that supports both local testing with LocalStack and production deployment to AWS ECR.
+
+### Pipeline Overview
+
+The CI/CD pipeline consists of three main jobs:
+
+1. **`lint-and-test`** - Code quality and testing
+2. **`build-and-push`** - Docker image building and deployment
+3. **`security-scan`** - Security vulnerability scanning
+
+### Pipeline Jobs
+
+#### 1. Lint and Test Job
+
+**Triggers:** All pushes and pull requests
+- Sets up Node.js 22 environment
+- Installs dependencies with `npm ci --include=dev`
+- Runs ESLint for code quality checks
+- Executes test suite with `npm test`
+
+#### 2. Build and Push Job
+
+**Dual Mode Operation:**
+
+**LocalStack Mode** (`USE_LOCALSTACK: 'true'`):
+- Builds Docker images locally for testing
+- Creates images tagged with Git SHA and `latest`
+- No AWS authentication or pushing required
+- Perfect for CI simulation and local development
+
+**Production Mode** (`USE_LOCALSTACK: 'false'`):
+- Uses OIDC role assumption for secure AWS authentication
+- Logs into Amazon ECR registry
+- Builds, tags, and pushes images to production ECR
+- Performs vulnerability scanning on pushed images
+
+**Environment Variables:**
+```yaml
+AWS_REGION: us-east-1
+USE_LOCALSTACK: 'true'  # Set to 'false' for production
+ECR_REPOSITORY_NAME: ${{ vars.ECR_REPOSITORY_NAME || 'bedrock-devops-app' }}
+AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}  # For production only
+```
+
+#### 3. Security Scan Job
+
+**Security Scanning Features:**
+- **npm audit** - Checks for known vulnerabilities in dependencies
+- **Trivy scanner** - Comprehensive vulnerability scanning
+- **SARIF output** - Security results in standard format
+
+**Dual Output Mode:**
+- **GitHub Remote**: Uploads SARIF results to GitHub Security tab
+- **Local Testing**: Displays scan results in terminal using `jq`
+
+### Configuration
+
+#### For Local Testing
+
+The pipeline is pre-configured for local testing with `act`:
+
+```bash
+# Run the entire pipeline locally
+act --env-file .env
+
+# Run specific jobs
+act -j lint-and-test --env-file .env
+act -j build-and-push --env-file .env
+act -j security-scan --env-file .env
+```
+
+#### For Production Deployment
+
+1. **Set GitHub Repository Variables:**
+   - Navigate to Settings → Secrets and variables → Actions → Variables
+   - Add: `ECR_REPOSITORY_NAME` = `bedrock-devops-app`
+
+2. **Set GitHub Repository Secrets:**
+   - Navigate to Settings → Secrets and variables → Actions → Secrets  
+   - Add: `AWS_ROLE_ARN` = `arn:aws:iam::YOUR_ACCOUNT:role/github-actions-ecr-prod`
+
+3. **Update Pipeline Configuration:**
+   ```yaml
+   USE_LOCALSTACK: 'false'  # Enable production mode
+   ```
+
+### Infrastructure as Code Integration
+
+The pipeline works seamlessly with the Terraform infrastructure:
+
+**ECR Repository Creation:**
+- Created via Terraform ECR module (`terraform/modules/ecr/`)
+- Repository names match between Terraform and GitHub Actions
+- Supports environment-specific repositories (dev, staging, prod)
+
+**IAM Role for GitHub Actions:**
+- Created via Terraform (`terraform/modules/github-actions/`)
+- Uses OIDC for secure, keyless authentication
+- Scoped to specific GitHub repository with least-privilege access
+
+**Example Terraform Output:**
+```bash
+# After terraform apply
+terraform output github_actions_role_arn
+# Output: arn:aws:iam::123456789:role/github-actions-ecr-prod
+```
+
+### Security Features
+
+#### Authentication Methods
+- **Local/Testing**: Simple test credentials for LocalStack
+- **Production**: OIDC role assumption (no long-lived keys)
+
+#### Access Control
+- Repository-scoped GitHub OIDC trust policy
+- Least-privilege ECR permissions (push, scan, auth only)
+- Environment-specific IAM roles
+
+#### Vulnerability Management
+- Automated dependency scanning with `npm audit`
+- Container image scanning with Trivy
+- SARIF integration with GitHub Security tab
+- Continuous monitoring of security findings
+
+### Pipeline Triggers
+
+```yaml
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+```
+
+- **Push to main/develop**: Full pipeline execution
+- **Pull requests to main**: Full pipeline for validation
+- **Manual trigger**: Available via GitHub Actions UI
+
+### Example Usage
+
+**Local Development Workflow:**
+```bash
+# 1. Make changes to application
+git add .
+git commit -m "Add new feature"
+
+# 2. Test pipeline locally
+act --env-file .env
+
+# 3. Push when ready
+git push origin feature-branch
+```
+
+**Production Deployment:**
+```bash
+# 1. Update pipeline for production
+# Set USE_LOCALSTACK: 'false' in workflow
+
+# 2. Ensure AWS infrastructure is deployed
+cd terraform
+terraform apply -var-file="environments/prod/terraform.tfvars"
+
+# 3. Deploy via GitHub
+git push origin main
+```
+
+### Monitoring and Observability
+
+The pipeline provides comprehensive visibility:
+- **GitHub Actions UI**: Real-time job progress and logs
+- **GitHub Security Tab**: Vulnerability scan results
+- **ECR Console**: Container image repository and scan results
+- **CloudWatch**: AWS resource utilization and metrics
+
 ### Security
 
 1. **Network Security (Docker Network Isolation)**

@@ -47,12 +47,6 @@ variable "prometheus_service_account_name" {
   type        = string
 }
 
-variable "custom_aws_endpoint_enabled" {
-  description = "Enable custom AWS endpoint configurations (e.g., for LocalStack)"
-  type        = bool
-  default     = true
-}
-
 variable "enable_custom_metrics" {
   description = "Enable permissions for Prometheus custom application metrics"
   type        = bool
@@ -120,5 +114,20 @@ variable "app_labels" {
   description = "Labels to apply to application Kubernetes resources"
   type        = map(string)
   default     = {}
+}
+
+variable "ecr_repository_name" {
+  description = "Name of the ECR repository"
+  type        = string
+}
+
+variable "github_repo" {
+  description = "GitHub repository in the format 'owner/repo'"
+  type        = string
+}
+
+variable "github_actions_role_name" {
+  description = "Name of the IAM role for GitHub Actions"
+  type        = string
 }
 

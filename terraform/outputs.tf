@@ -48,3 +48,38 @@ output "access_log_group_name" {
   value       = module.cloudwatch.access_log_group_name
 }
 
+output "ecr_repository_arn" {
+  description = "ARN of the ECR repository"
+  value       = module.ecr.repository_arn
+}
+
+output "ecr_repository_name" {
+  description = "Name of the ECR repository"
+  value       = module.ecr.repository_name
+}
+
+output "ecr_repository_url" {
+  description = "URL of the ECR repository"
+  value       = module.ecr.repository_url
+}
+
+output "ecr_registry_id" {
+  description = "Registry ID of the ECR repository"
+  value       = module.ecr.registry_id
+}
+
+output "github_actions_role_arn" {
+  description = "ARN of the GitHub Actions IAM role"
+  value       = module.iam.github_actions_role_arn
+}
+
+output "github_actions_role_name" {
+  description = "Name of the GitHub Actions IAM role"
+  value       = module.iam.github_actions_role_name
+}
+
+output "github_oidc_provider_arn" {
+  description = "ARN of the GitHub OIDC provider"
+  value       = module.iam.github_oidc_provider_arn
+}
+

@@ -1,0 +1,144 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./application
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: ./application/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+      # Set to 'true' for LocalStack mode, 'false' for production
+      USE_LOCALSTACK: 'true'
+      # For production - these come from GitHub Variables/Secrets
+      ECR_REPOSITORY_NAME: ${{ vars.ECR_REPOSITORY_NAME || 'bedrock-devops-app' }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+    defaults:
+      run:
+        working-directory: ./application
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image (LocalStack - no push)
+        if: env.USE_LOCALSTACK == 'true'
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "Building Docker image for LocalStack simulation..."
+          docker build -t $ECR_REPOSITORY_NAME:$IMAGE_TAG .
+          docker build -t $ECR_REPOSITORY_NAME:latest .
+          echo "✅ Docker images built successfully:"
+          docker images | grep $ECR_REPOSITORY_NAME
+          echo "image=$ECR_REPOSITORY_NAME:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials and Login to ECR (Production)
+        if: env.USE_LOCALSTACK != 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR (Production)
+        if: env.USE_LOCALSTACK != 'true'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR (Production)
+        if: env.USE_LOCALSTACK != 'true'
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          # Build Docker image
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_NAME:$IMAGE_TAG .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_NAME:latest .
+          
+          # Push images to ECR
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_NAME:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_NAME:latest
+          
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY_NAME:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Image scan (Production)
+        if: env.USE_LOCALSTACK != 'true'
+        run: |
+          aws ecr start-image-scan \
+            --repository-name $ECR_REPOSITORY_NAME \
+            --image-id imageTag=${{ github.sha }} \
+            --region ${{ env.AWS_REGION }} || true
+
+  security-scan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./application
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: ./application/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './application'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && github.actor != 'nektos/act'
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Show Trivy results (local testing)
+        if: always() && github.actor == 'nektos/act'
+        run: |
+          echo "📋 Trivy scan results:"
+          if [ -f trivy-results.sarif ]; then
+            cat trivy-results.sarif | jq '.runs[0].results[] | {ruleId, message: .message.text, level}' || echo "SARIF file found but jq parsing failed"
+          else
+            echo "No trivy-results.sarif file found"
+          fi
