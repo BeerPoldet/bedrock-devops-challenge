@@ -288,18 +288,16 @@ curl http://localhost:3000/
 ## Configuration
 
 The Docker Compose setup includes:
-- **Container Name**: `localstack` (configurable via `LOCALSTACK_DOCKER_NAME`)
+- **Container Name**: `localstack`
 - **LocalStack Version**: 4.7
 - **Debug Mode**: Disabled by default (enable with `DEBUG=1`)
-- **Volume Mapping**: Local `./volume` directory for persistence
+- **Volume Mapping**: Docker named volume `localstack-data` for persistence
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LOCALSTACK_DOCKER_NAME` | `localstack` | Container name |
 | `DEBUG` | `0` | Enable debug mode (set to `1`) |
-| `LOCALSTACK_VOLUME_DIR` | `./volume` | Local volume directory |
 
 
 ## Troubleshooting
