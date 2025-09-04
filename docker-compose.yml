@@ -98,7 +98,7 @@ services:
     networks:
       - bedrock-network
 
-  # S3 Metrics Generator (alternative to CloudWatch exporter for LocalStack)
+  # S3 Metrics Generator (Custom Prometheus Exporter to CloudWatch Exporter)
   s3-metrics-generator:
     build:
       context: ./monitoring/s3-metrics-generator
@@ -118,6 +118,32 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9107/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - bedrock-network
+
+  # CloudWatch Exporter
+  cloudwatch-exporter:
+    image: prom/cloudwatch-exporter:v0.16.0
+    container_name: cloudwatch-exporter
+    ports:
+      - "9106:9106"
+    environment:
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
+    volumes:
+      - ./monitoring/cloudwatch-exporter/config.yml:/config.yml
+    command: ["/config.yml"]
+    depends_on:
+      localstack:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9106/health"]
       interval: 30s
       timeout: 10s
       retries: 3

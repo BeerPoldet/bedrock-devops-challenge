@@ -25,8 +25,6 @@ scrape_configs:
       - target_label: __address__
         replacement: 'app:3000'
 
-
-
   # Infrastructure metrics from node-exporter
   - job_name: 'node-exporter'
     static_configs:
@@ -39,6 +37,14 @@ scrape_configs:
       - targets: ['s3-metrics-generator:9107']
     scrape_interval: 30s  # S3 metrics update frequently with real bucket data
     scrape_timeout: 25s
+
+  # CloudWatch metrics from official CloudWatch exporter
+  - job_name: 'cloudwatch-exporter'
+    static_configs:
+      - targets: ['cloudwatch-exporter:9106']
+    scrape_interval: 60s  # CloudWatch metrics can be slower to update
+    scrape_timeout: 30s
+    metrics_path: '/metrics'
 
   # Prometheus self-monitoring
   - job_name: 'prometheus'
