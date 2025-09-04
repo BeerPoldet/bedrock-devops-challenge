@@ -740,6 +740,199 @@ The pipeline provides comprehensive visibility:
    ```
    ```
 
+## Backup and Restore
+
+This project includes automated backup and restore scripts for critical data components.
+
+### Data Components
+
+The backup/restore system handles:
+- **S3 Data (LocalStack)**: Uploaded files and application logs
+- **Prometheus Data**: Time-series metrics and monitoring data (15-day retention)
+- **Grafana Data**: Dashboards, data sources, and configuration
+
+### Backup Script
+
+The backup script (`scripts/backup.sh`) creates timestamped backups of all data components:
+
+```bash
+# Create a backup
+./scripts/backup.sh
+```
+
+**What it does:**
+1. **Validates prerequisites**: Checks LocalStack and container availability
+2. **S3 Data Backup**: Uses AWS CLI to sync all objects from the S3 bucket to local files
+3. **Prometheus Backup**: Creates tar.gz archive of the `prometheus-data` Docker volume
+4. **Grafana Backup**: Creates tar.gz archive of the `grafana-data` Docker volume
+5. **Creates summary**: Generates backup metadata and size information
+
+**Output Structure:**
+```
+backups/backup_YYYYMMDD_HHMMSS/
+├── s3/                     # S3 bucket contents
+│   ├── uploads/           # User uploaded files
+│   ├── logs/              # Application logs
+│   └── backup_info.txt    # S3 backup metadata
+├── prometheus/
+│   ├── prometheus-data.tar.gz  # Compressed volume data
+│   └── backup_info.txt         # Prometheus backup metadata
+├── grafana/
+│   ├── grafana-data.tar.gz     # Compressed volume data
+│   └── backup_info.txt         # Grafana backup metadata
+└── backup_summary.txt          # Overall backup summary
+```
+
+### Restore Script
+
+The restore script (`scripts/restore.sh`) restores data from backups with validation:
+
+```bash
+# List available backups
+./scripts/restore.sh
+
+# Restore from specific backup
+./scripts/restore.sh backup_20240101_120000
+```
+
+**What it does:**
+1. **Lists available backups** when run without arguments
+2. **Validates backup** structure and components before restore
+3. **Confirms operation** with user (destructive operation warning)
+4. **S3 Data Restore**: Clears existing bucket and restores files from backup
+5. **Volume Restore**: Stops containers, clears volumes, and restores from archives
+6. **Post-restore guidance**: Provides instructions for restarting services
+
+**Safety Features:**
+- Interactive confirmation before destructive operations
+- Backup validation before proceeding
+- Graceful handling of missing backup components
+- Clear status reporting throughout the process
+
+### Usage Examples
+
+**Daily Backup Workflow:**
+```bash
+# Start services
+docker compose up -d
+
+# Wait for services to be ready
+sleep 30
+
+# Create backup
+./scripts/backup.sh
+
+# Backup created at: backups/backup_20240315_143000/
+```
+
+**Disaster Recovery Workflow:**
+```bash
+# List available backups
+./scripts/restore.sh
+
+# Restore from latest backup
+./scripts/restore.sh backup_20240315_143000
+
+# Restart services after restore
+docker compose restart prometheus grafana
+```
+
+**Backup Validation:**
+```bash
+# Check backup contents
+ls -la backups/backup_20240315_143000/
+cat backups/backup_20240315_143000/backup_summary.txt
+```
+
+### Prerequisites
+
+**Required Tools:**
+- AWS CLI (`aws`)
+- Docker with volume access
+- curl (for LocalStack health checks)
+
+**Required Services:**
+- LocalStack running on port 4566
+- Docker volumes: `prometheus-data`, `grafana-data`
+
+**Permissions:**
+- Docker socket access for volume operations
+- Read/write access to backup directory
+- Network access to LocalStack endpoint
+
+### Configuration
+
+Both scripts use these configurable variables:
+
+```bash
+# Backup/Restore Configuration
+BACKUP_DIR="./backups"              # Local backup storage location
+AWS_ENDPOINT="http://localhost:4566" # LocalStack endpoint
+AWS_REGION="us-east-1"              # AWS region
+S3_BUCKET_NAME="app"                # S3 bucket name
+```
+
+**Environment Variables:**
+The scripts can be customized using environment variables:
+```bash
+# Custom backup location
+export BACKUP_DIR="/path/to/backups"
+
+# Custom LocalStack endpoint
+export AWS_ENDPOINT="http://localstack.orb.local:4566"
+
+# Run backup
+./scripts/backup.sh
+```
+
+### Monitoring and Logs
+
+Both scripts provide comprehensive logging with:
+- **Colored output**: Green for success, yellow for warnings, red for errors
+- **Timestamps**: All log messages include timestamp
+- **Progress tracking**: Clear indication of current operation
+- **Error handling**: Immediate exit on critical errors with descriptive messages
+
+### Troubleshooting
+
+**Common Issues:**
+
+1. **"LocalStack not accessible"**
+   ```bash
+   # Check LocalStack status
+   curl http://localhost:4566/_localstack/health
+   docker compose ps localstack
+   ```
+
+2. **"Docker volume not found"**
+   ```bash
+   # List existing volumes
+   docker volume ls
+   # Recreate missing volumes
+   docker compose up -d
+   ```
+
+3. **"Permission denied"**
+   ```bash
+   # Ensure scripts are executable
+   chmod +x scripts/backup.sh scripts/restore.sh
+   ```
+
+4. **"AWS CLI not found"**
+   ```bash
+   # Install AWS CLI
+   # macOS: brew install awscli
+   # Ubuntu: apt install awscli
+   aws --version
+   ```
+
+5. **"Backup directory permissions"**
+   ```bash
+   # Ensure backup directory is writable
+   mkdir -p backups
+   chmod 755 backups
+   ```
+
 ## Resources
 
 - [LocalStack Documentation](https://docs.localstack.cloud/)
