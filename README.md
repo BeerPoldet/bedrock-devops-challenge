@@ -673,31 +673,55 @@ The pipeline provides comprehensive visibility:
 
 ### Security
 
-1. **Network Security (Docker Network Isolation)**
-   - Custom isolated Docker networks separate components from default bridge
-   - Subnet isolation with CIDR block configuration
-   - Service discovery within secure network boundaries
-   - Health checks ensure only healthy services communicate
-   
-   **Implementation from `docker-compose.yml`:**
+1. **Network Security (3-Tier Network Isolation)**
+   - Three segregated Docker networks implementing defense-in-depth security
+   - Service-specific network access following principle of least privilege
+   - Network boundary enforcement with subnet isolation
+   - Cross-network communication only where required for functionality
+   - Dedicated visualization layer isolating Grafana from raw metric exporters
+   - Public access handled via Docker port mapping (no dedicated frontend network needed)
+   - Consolidated exporter network combining data services and metric exporters for efficiency
+
+   **Service Network Assignment:**
    ```yaml
-   networks:
-     bedrock-network:
-       driver: bridge
-       ipam:
-         config:
-           - subnet: 172.20.0.0/16
-   
    services:
+     # Data services isolation
+     localstack:
+       networks:
+         - exporter  # Data service in exporter network
+     
+     # Application with controlled data access
      app:
        networks:
-         - bedrock-network
+         - application
+         - exporter     # S3 operations via LocalStack
+     
+     # Monitoring with cross-tier access for metrics collection
      prometheus:
        networks:
-         - bedrock-network  # Same network for metrics scraping
+         - exporter       # Access to data services and exporters
+         - application    # App metrics scraping
+         - visualization  # Serve data to Grafana
+     
+     # User-facing dashboard with isolated Prometheus access
      grafana:
        networks:
-         - bedrock-network  # Access to Prometheus data source
+         - visualization  # Access to Prometheus only
+       ports:
+         - "3001:3000"   # Public access via Docker port mapping
+     
+     # Metric exporters co-located with data services
+     node-exporter:
+       networks:
+         - exporter  # Infrastructure monitoring
+     
+     cloudwatch-exporter:
+       networks:
+         - exporter  # CloudWatch metrics export + LocalStack access
+     
+     s3-metrics-generator:
+       networks:
+         - exporter  # S3 metrics export + LocalStack access
    ```
 
 2. **Credential Management**

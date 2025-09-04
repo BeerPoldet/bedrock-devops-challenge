@@ -24,7 +24,7 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - bedrock-network
+      - exporter
 
   # Sample Application
   app:
@@ -47,9 +47,8 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - bedrock-network
-    volumes:
-      - app-logs:/var/log/app
+      - application
+      - exporter # Access to data services
 
   # Prometheus for metrics collection
   prometheus:
@@ -79,7 +78,9 @@ services:
       retries: 3
       start_period: 30s
     networks:
-      - bedrock-network
+      - exporter       # Access to data services and exporters
+      - application    # Scrape app metrics
+      - visualization  # Serve data to Grafana
 
   # Node Exporter for infrastructure metrics
   node-exporter:
@@ -96,7 +97,7 @@ services:
       - /:/rootfs:ro
     restart: unless-stopped
     networks:
-      - bedrock-network
+      - exporter  # Infrastructure monitoring service
 
   # S3 Metrics Generator (Custom Prometheus Exporter to CloudWatch Exporter)
   s3-metrics-generator:
@@ -123,7 +124,7 @@ services:
       retries: 3
       start_period: 30s
     networks:
-      - bedrock-network
+      - exporter  # Access to data services and metrics export
 
   # CloudWatch Exporter
   cloudwatch-exporter:
@@ -149,7 +150,7 @@ services:
       retries: 3
       start_period: 30s
     networks:
-      - bedrock-network
+      - exporter  # Access to data services for CloudWatch metrics
 
   # Grafana for monitoring dashboard
   grafana:
@@ -181,21 +182,27 @@ services:
       retries: 3
       start_period: 30s
     networks:
-      - bedrock-network
+      - visualization # Access to Prometheus (public access via port mapping)
 
 volumes:
   prometheus-data:
     driver: local
   grafana-data:
     driver: local
-  app-logs:
-    driver: local
-  localstack-data:
-    driver: local
 
 networks:
-  bedrock-network:
+  application:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.0.0/16
+        - subnet: 172.21.2.0/24
+  exporter:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.3.0/24
+  visualization:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.4.0/24
