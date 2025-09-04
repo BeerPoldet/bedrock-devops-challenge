@@ -19,16 +19,45 @@ Choose one of the following options:
 - Better resource utilization on macOS
 - Installation guide: https://docs.orbstack.dev/install
 
+### Install Terraform
+
+**Installation Guide:** https://developer.hashicorp.com/terraform/install
+
+**macOS (Homebrew):**
+```bash
+brew tap hashicorp/tap
+brew install hashicorp/tap/terraform
+```
+
+**Alternative Installation Methods:**
+- Direct binary download from HashiCorp releases
+- Package managers (apt, yum, etc.) for Linux
+- Chocolatey for Windows
+
+### Install AWS CLI
+
+**Installation Guide:** https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+
+**macOS:**
+```bash
+# Option 1: Homebrew
+brew install awscli
+
+# Option 2: Official installer
+curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
+sudo installer -pkg AWSCLIV2.pkg -target /
+```
+
 ## Getting Started
 
 ### Prerequisites
 
-**Install Required Tools**
+**Verify Required Tools Installation:**
 ```bash
-# Verify installations
-terraform --version
-docker --version
-aws --version
+# Check all required tools are installed
+terraform --version  # Should return v1.5+
+docker --version     # Should return 20.10+
+aws --version        # Should return aws-cli/2.0+
 ```
 
 **Install LocalStack**
