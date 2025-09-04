@@ -85,11 +85,20 @@ def metrics():
     output.append('# TYPE aws_s3_bytes_downloaded_sum counter')
     output.append(f'aws_s3_bytes_downloaded_sum{{bucket_name="{bucket_name}"}} {download_rate}')
     
-    # Request metrics
-    request_rate = max(0, 10 * (current_time % 30))  # Simulate request activity
+    # Request metrics - counter should be monotonically increasing  
+    # Simulate cumulative requests starting from a more recent baseline
+    start_time = 1757007000  # Recent baseline timestamp
+    if current_time < start_time:
+        start_time = current_time  # If somehow we're before baseline, use current time
+    
+    elapsed_seconds = current_time - start_time
+    base_requests = elapsed_seconds * 0.5  # 0.5 requests per second baseline
+    variation = abs((current_time % 60) - 30) * 0.1  # Add some variation
+    total_requests = max(0, int(base_requests + variation))  # Ensure non-negative
+    
     output.append('# HELP aws_s3_all_requests_sum Total requests to S3 bucket')
     output.append('# TYPE aws_s3_all_requests_sum counter')
-    output.append(f'aws_s3_all_requests_sum{{bucket_name="{bucket_name}"}} {request_rate}')
+    output.append(f'aws_s3_all_requests_sum{{bucket_name="{bucket_name}"}} {total_requests}')
     
     # Add timestamp
     output.append(f'# Generated at {datetime.now().isoformat()}')
