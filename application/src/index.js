@@ -265,7 +265,11 @@ app.get('/', (req, res) => {
 });
 
 // Error handling middleware
-app.use((error, req, res, next) => {
+app.use((
+  error,
+  req,
+  res,
+  /* eslint-disable no-unused-vars */next/* eslint-enable no-unused-vars */) => {
   logger.error('Unhandled error', {
     error: error.message,
     stack: error.stack,
